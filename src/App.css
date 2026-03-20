@@ -1,0 +1,50 @@
+#root {
+  margin: 0 auto;
+}
+
+#chartDiv {
+    height: 400px;
+    max-width: 1000px;
+}
+
+.metric-container {
+    margin-left: 1rem;
+    margin-right: 1rem;
+}
+
+select {
+    font-size: 1rem;
+    margin: 10px;
+}
+
+.data-table {
+    font-size: 0.8rem;
+    border-collapse: collapse;
+}
+
+.data-table th {
+    border-bottom: 1px solid lightgray;
+    white-space: nowrap;
+}
+
+.data-table th, .data-table td {
+    padding: 0.2rem;
+}
+
+.sortable-table th {
+    user-select: none;
+}
+
+.sortable-table thead tr {
+    cursor: pointer;
+}
+
+.training {
+    font-weight: bold;
+}
+
+.sort-arrow {
+    display: inline-block;
+    margin-left: 0.5rem;
+    width: 2rem;
+}
