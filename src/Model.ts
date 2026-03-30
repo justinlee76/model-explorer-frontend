@@ -7,7 +7,7 @@ export interface Model {
     kwArgs: { [key: string]: unknown };
     tag: string;
     trainableParams: number;
-    minValLoss: number;
-    maxValAccuracy: number;
+    minValLoss: number | null;
+    maxValAccuracy: number | null;
     status: number;
 }

@@ -5,7 +5,9 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 
 Chart.register(...registerables, zoomPlugin);
 
-export type MetricChartData = ChartData<'line', { x: number; y: number }[], number>;
+export type MetricChartDataSeries = { x: number; y: number }[];
+
+export type MetricChartData = ChartData<'line', MetricChartDataSeries, number>;
 
 interface MetricChartProps {
     data: MetricChartData;

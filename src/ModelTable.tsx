@@ -26,34 +26,32 @@ const formatColumnValue = (model: Model, col: AnyColDef): string => {
     const val = model[col.key];
     if (typeof col.format === 'undefined')
         return typeof val === 'object' ? JSON.stringify(val) : val.toString();
-    if (val === null)
-        return '';
     return (col.format as (v: typeof val) => string)(val);
 };
 
+const colDefs: AnyColDef[] = [
+    {
+        key: 'datetime', name: 'Date & Time', format: v =>
+            new Date(v).toLocaleString(undefined, {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour12: false,
+                hour: 'numeric',
+                minute: 'numeric',
+            })
+    },
+    { key: 'id', name: 'Id' },
+    { key: 'class', name: 'Class' },
+    { key: 'module', name: 'Module' },
+    { key: 'args', name: 'Args' },
+    { key: 'kwArgs', name: 'KWArgs' },
+    { key: 'trainableParams', name: 'Trainable Params', format: v => v.toString() },
+    { key: 'minValLoss', name: 'Min Val Loss', format: v => v?.toFixed(4) ?? '' },
+    { key: 'maxValAccuracy', name: 'Max Val Accuracy', format: v => v?.toFixed(4) ?? '' },
+];
+    
 export function ModelTable({ data, selectedModels, handleModelCheckboxChange }: ModelTableProps) {
-    const colDefs: AnyColDef[] = useMemo(() => [
-        {
-            key: 'datetime', name: 'Date & Time', format: v =>
-                new Date(v).toLocaleString(undefined, {
-                    year: 'numeric',
-                    month: 'numeric',
-                    day: 'numeric',
-                    hour12: false,
-                    hour: 'numeric',
-                    minute: 'numeric',
-                })
-        },
-        { key: 'id', name: 'Id' },
-        { key: 'class', name: 'Class' },
-        { key: 'module', name: 'Module' },
-        { key: 'args', name: 'Args' },
-        { key: 'kwArgs', name: 'KWArgs' },
-        { key: 'trainableParams', name: 'Trainable Params', format: v => v.toString() },
-        { key: 'minValLoss', name: 'Min Val Loss', format: v => v.toFixed(4) },
-        { key: 'maxValAccuracy', name: 'Max Val Accuracy', format: v => v.toFixed(4) },
-    ], []);
-
     const [sortCol, setSortCol] = useState<ColName>('datetime');
     const [sortDir, setSortDir] = useState<SortDir>(-1);
 

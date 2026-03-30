@@ -28,13 +28,12 @@ export function getUrl(path: string, query?: { [key: string]: string | string[] 
 export async function fetchJsonData<T>(url: string, signal?: AbortSignal, requestData?: unknown, method: string = 'GET'): Promise<T> {
     const options: RequestInit = {
         method,
-        headers: {
-            'Content-Type': 'application/json; charset=utf-8'
-        },
         signal
     };
-    if (requestData !== undefined && method !== 'GET')
+    if (requestData !== undefined && method !== 'GET') {
+        options.headers = { 'Content-Type': 'application/json' };
         options.body = JSON.stringify(requestData);
+    }
     console.log('fetch', url, options);
     const response = await fetch(url, options);
     if (!response.ok)
