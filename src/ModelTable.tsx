@@ -42,10 +42,10 @@ const colDefs: AnyColDef[] = [
             })
     },
     { key: 'id', name: 'Id' },
-    { key: 'class', name: 'Class' },
+    { key: 'className', name: 'Class' },
     { key: 'module', name: 'Module' },
     { key: 'args', name: 'Args' },
-    { key: 'kwArgs', name: 'KWArgs' },
+    { key: 'kwargs', name: 'KWArgs' },
     { key: 'trainableParams', name: 'Trainable Params', format: v => v.toString() },
     { key: 'minValLoss', name: 'Min Val Loss', format: v => v?.toFixed(4) ?? '' },
     { key: 'maxValAccuracy', name: 'Max Val Accuracy', format: v => v?.toFixed(4) ?? '' },

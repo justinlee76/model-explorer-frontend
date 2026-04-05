@@ -12,31 +12,38 @@ interface MetricHistoryKey {
     metricName: string;
 }
 
-interface MetricHistory {
-    id: string;
-    metricName: string;
+interface MetricHistory extends MetricHistoryKey {
     metricHistory: number[];
 }
 
-type ModelRequestType = 'metric-history.subscribe' | 'metric-history.unsubscribe';
+interface TagRequest {
+    type: 'tag.subscribe' | 'tag.unsubscribe';
+    tag: string;
+}
 
 interface ModelRequest {
-    type: ModelRequestType;
-    id: string;
-    metricName: string;
+    type: 'metric-history.subscribe' | 'metric-history.unsubscribe';
+    keys: MetricHistoryKey[];
 }
 
-type ModelUpdateType = 'metric-history.update'
+type ModelMessage = ModelInsertOrUpdate | MetricHistoryUpdate | ModelDelete;
 
-interface ModelUpdate {
-    type: ModelUpdateType;
+interface ModelInsertOrUpdate {
+    type: 'model.insert' | 'model.update';
+    model: Model;
 }
 
-interface MetricHistoryUpdate extends ModelUpdate {
+interface MetricHistoryUpdate {
+    type: 'metric-history.update';
     id: string;
     metricName: string;
-    value: number;
     index: number;
+    value: number;
+}
+
+interface ModelDelete {
+    type: 'model.delete';
+    id: string;
 }
 
 const handleFetchError = (error: unknown) => {
@@ -53,6 +60,8 @@ function App() {
     const [selectedMetrics, setSelectedMetrics] = useState(new Set<string>());
     const [chartData, setChartData] = useState<MetricChartData>({ datasets: [] });
 
+    const selectedTagRef = useRef(selectedTag);
+
     const chartDataVersionRef = useRef(0);
     const datasetMapRef = useRef(new Map<string, MetricChartDataset>());
 
@@ -66,6 +75,21 @@ function App() {
 
     const keyToString = (id: string, metricName: string): string => JSON.stringify({ id, metricName });
     const getMetricHistoryKey = (keyStr: string): MetricHistoryKey => JSON.parse(keyStr);
+
+    const sendMessage = (message: ModelRequest | TagRequest): boolean => {
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+            try {
+                console.log('sending message over ws', message);
+                socketRef.current.send(JSON.stringify(message));
+                return true;
+            } catch (error) {
+                console.error('error sending message', error);
+            }
+        }
+        else
+            console.warn('Unable to send message as open socket not available');
+        return false;
+    };
 
     useEffect(() => {
         console.log('useEffect on []');
@@ -83,13 +107,38 @@ function App() {
             ws.onmessage = (event) => {
                 try {
                     console.log('received ws message', event.data);
-                    const message = JSON.parse(event.data) as ModelUpdate;
-                    if (message.type === 'metric-history.update') {
-                        const { id, metricName, value, index } = message as MetricHistoryUpdate;
-                        const dataset = datasetMapRef.current.get(keyToString(id, metricName));
-                        if (dataset !== undefined) {
-                            dataset.data[index] = { x: index + 1, y: value };
-                            updateChartData();
+
+                    const message = JSON.parse(event.data) as ModelMessage;
+                    switch (message.type) {
+                        case 'metric-history.update': {
+                            const { id, metricName, index, value } = message;
+                            const dataset = datasetMapRef.current.get(keyToString(id, metricName));
+                            if (dataset !== undefined) {
+                                dataset.data[index] = { x: index + 1, y: value };
+                                updateChartData();
+                            }
+                            break;
+                        }
+                        case 'model.insert': {
+                            const { model } = message;
+                            if (model.tag === selectedTagRef.current) {
+                                setModels(prev => [...prev, model]);
+                                setSelectedModels(prev => new Set([...prev, model.id]));                                
+                            }
+                            break;
+                        }
+                        case 'model.update': {
+                            const { model } = message;
+                            if (model.tag === selectedTagRef.current) {
+                                setModels(prev => prev.map(m => m.id === model.id ? model : m));
+                            }
+                            break;
+                        }
+                        case 'model.delete': {
+                            const { id } = message;
+                            setModels(prev => prev.filter(m => m.id !== id));
+                            setSelectedModels(prev => new Set([...prev].filter(m => m !== id)));
+                            break;
                         }
                     }
                 } catch (error) {
@@ -138,6 +187,12 @@ function App() {
     useEffect(() => {
         console.log('useEffect on [selectedTag]');
 
+        if (selectedTagRef.current !== '')
+            sendMessage({ type: 'tag.unsubscribe', tag: selectedTagRef.current });
+        sendMessage({ type: 'tag.subscribe', tag: selectedTag });
+
+        selectedTagRef.current = selectedTag;
+
         const controller = new AbortController();
 
         if (selectedTag !== '') {
@@ -170,13 +225,6 @@ function App() {
             data: history.metricHistory.map((v, i) => ({ x: i + 1, y: v }))
         });
 
-        const sendMessage = (message: ModelRequest) => {
-            if (socketRef.current?.readyState === WebSocket.OPEN)
-                socketRef.current.send(JSON.stringify(message));
-            else
-                console.warn('Unable to send message as open socket not available');
-        };
-
         const controller = new AbortController();
 
         const chartDataVersion = ++chartDataVersionRef.current;
@@ -191,29 +239,21 @@ function App() {
         const addedKeys = setDifference(selectedKeys, datasetMapRef.current.keys());
 
         if (removedKeys.length > 0) {            
-            for (const k of removedKeys) {
-                const key = getMetricHistoryKey(k);
-                const message: ModelRequest = {
-                    type: 'metric-history.unsubscribe',
-                    id: key.id,
-                    metricName: key.metricName  
-                };
-                sendMessage(message);
-                datasetMapRef.current.delete(k);
-            }
+            const message: ModelRequest = {
+                type: 'metric-history.unsubscribe',
+                keys: removedKeys.map(getMetricHistoryKey)
+            };
+            sendMessage(message)
+            removedKeys.forEach(k => datasetMapRef.current.delete(k));
             updateChartData();
         }
         
         if (addedKeys.length > 0) {
-            for (const k of addedKeys) {
-                const key = getMetricHistoryKey(k);
-                const message: ModelRequest = {
-                    type: 'metric-history.subscribe',
-                    id: key.id,
-                    metricName: key.metricName
-                };
-                sendMessage(message);
-            }
+            const message: ModelRequest = {
+                type: 'metric-history.subscribe',
+                keys: addedKeys.map(getMetricHistoryKey)
+            };
+            sendMessage(message);
             fetchJsonData<MetricHistory[]>(getUrl('metric-history'), controller.signal, addedKeys.map(k => JSON.parse(k)), 'POST')
                 .then(data => {
                     if (chartDataVersion !== chartDataVersionRef.current)

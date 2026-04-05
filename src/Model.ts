@@ -2,9 +2,9 @@ export interface Model {
     datetime: string;
     id: string;
     module: string;
-    class: string;
+    className: string;
     args: unknown[];
-    kwArgs: { [key: string]: unknown };
+    kwargs: { [key: string]: unknown };
     tag: string;
     trainableParams: number;
     minValLoss: number | null;
