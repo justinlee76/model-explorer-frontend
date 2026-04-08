@@ -1,3 +1,10 @@
+export const ModelStatus = {
+    Training: 0,
+    Trained: 1
+} as const;
+
+export type ModelStatus = typeof ModelStatus[keyof typeof ModelStatus];
+
 export interface Model {
     datetime: string;
     id: string;
@@ -9,5 +16,5 @@ export interface Model {
     trainableParams: number;
     minValLoss: number | null;
     maxValAccuracy: number | null;
-    status: number;
+    status: ModelStatus;
 }

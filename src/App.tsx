@@ -1,5 +1,5 @@
 import { useState, useEffect, type ChangeEvent, type ChangeEventHandler, useRef } from 'react';
-import { type Model } from './Model';
+import { ModelStatus, type Model } from './Model';
 import { ModelTable } from './ModelTable';
 import { getUrl, fetchJsonData } from './dataUtils';
 import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
@@ -59,11 +59,13 @@ function App() {
     const [metrics, setMetrics] = useState<string[]>([]);
     const [selectedMetrics, setSelectedMetrics] = useState(new Set<string>());
     const [chartData, setChartData] = useState<MetricChartData>({ datasets: [] });
+    const [activeModels, setActiveModels] = useState(new Set<string>());
 
     const selectedTagRef = useRef(selectedTag);
 
     const chartDataVersionRef = useRef(0);
     const datasetMapRef = useRef(new Map<string, MetricChartDataset>());
+    const subscriptionsRef = useRef(new Set<string>());
 
     const socketRef = useRef<WebSocket | null>(null);
 
@@ -123,7 +125,9 @@ function App() {
                             const { model } = message;
                             if (model.tag === selectedTagRef.current) {
                                 setModels(prev => [...prev, model]);
-                                setSelectedModels(prev => new Set([...prev, model.id]));                                
+                                setSelectedModels(prev => new Set<string>([...prev, model.id]));
+                                if (model.status === ModelStatus.Training)
+                                    setActiveModels(prev => new Set<string>([...prev, model.id]));                           
                             }
                             break;
                         }
@@ -131,13 +135,23 @@ function App() {
                             const { model } = message;
                             if (model.tag === selectedTagRef.current) {
                                 setModels(prev => prev.map(m => m.id === model.id ? model : m));
+                                setActiveModels(prev => {
+                                    if (model.status === ModelStatus.Training) {
+                                        if (!prev.has(model.id))
+                                            return new Set<string>([...prev, model.id]);
+                                    }
+                                    else if (prev.has(model.id))
+                                        return new Set<string>([...prev].filter(m => m !== model.id));
+                                    return prev;
+                                });
                             }
                             break;
                         }
                         case 'model.delete': {
                             const { id } = message;
                             setModels(prev => prev.filter(m => m.id !== id));
-                            setSelectedModels(prev => new Set([...prev].filter(m => m !== id)));
+                            setSelectedModels(prev => new Set<string>([...prev].filter(m => m !== id)));
+                            setActiveModels(prev => prev.has(id) ? new Set<string>([...prev].filter(m => m !== id)) : prev);
                             break;
                         }
                     }
@@ -189,7 +203,9 @@ function App() {
 
         if (selectedTagRef.current !== '')
             sendMessage({ type: 'tag.unsubscribe', tag: selectedTagRef.current });
-        sendMessage({ type: 'tag.subscribe', tag: selectedTag });
+
+        if (selectedTag !== '')
+            sendMessage({ type: 'tag.subscribe', tag: selectedTag });
 
         selectedTagRef.current = selectedTag;
 
@@ -201,10 +217,11 @@ function App() {
                     setModels(data);
                     if (data.length > 0) {
                         const lastModel = data.reduce((last, current) => current.datetime > last.datetime ? current : last);
-                        setSelectedModels(new Set([lastModel.id]));
+                        setSelectedModels(new Set<string>([lastModel.id]));
                     }
                     else
-                        setSelectedModels(new Set());
+                        setSelectedModels(new Set<string>());
+                    setActiveModels(new Set<string>(data.filter(m => m.status === ModelStatus.Training).map(m => m.id)));
                 })
                 .catch(handleFetchError);
         }
@@ -213,11 +230,15 @@ function App() {
     }, [selectedTag]);
 
     useEffect(() => {
-        console.log('useEffect on [selectedModels, selectedMetrics]');
+        console.log('useEffect on [selectedModels, selectedMetrics, activeModels]');
 
-        const setDifference = (a: Iterable<string>, b: Iterable<string>): string[] => {
-            const setB = new Set(b);
-            return [...a].filter(x => !setB.has(x));
+        const setChanges = (current: Iterable<string>, previous: Iterable<string>): { added: string[], removed: string[] } => {
+            const currentSet = current instanceof Set ? current : new Set(current);
+            const previousSet = previous instanceof Set ? previous : new Set(previous);
+            return {
+                added: [...currentSet].filter(x => !previousSet.has(x)),
+                removed: [...previousSet].filter(x => !currentSet.has(x))
+            };
         };
 
         const toDataset = (history: MetricHistory): MetricChartDataset => ({
@@ -229,31 +250,46 @@ function App() {
 
         const chartDataVersion = ++chartDataVersionRef.current;
 
-        const selectedKeys: string[] = [];
-        for (const modelId of selectedModels)
+        const selectedKeys = new Set<string>();
+        const requiredSubscriptions = new Set<string>();
+        for (const modelId of selectedModels) {
+            const active = activeModels.has(modelId);
             for (const metricName of selectedMetrics) {
-                selectedKeys.push(keyToString(modelId, metricName));
+                const key = keyToString(modelId, metricName);
+                selectedKeys.add(key);
+                if (active)
+                    requiredSubscriptions.add(key);
             }
+        }
 
-        const removedKeys = setDifference(datasetMapRef.current.keys(), selectedKeys);
-        const addedKeys = setDifference(selectedKeys, datasetMapRef.current.keys());
+        const { added: addedSubscriptions, removed: removedSubscriptions } = setChanges(requiredSubscriptions, subscriptionsRef.current);
 
-        if (removedKeys.length > 0) {            
+        if (removedSubscriptions.length > 0) {
             const message: ModelRequest = {
                 type: 'metric-history.unsubscribe',
-                keys: removedKeys.map(getMetricHistoryKey)
+                keys: removedSubscriptions.map(getMetricHistoryKey)
             };
-            sendMessage(message)
+            sendMessage(message);
+            removedSubscriptions.forEach(k => subscriptionsRef.current.delete(k));
+        }
+
+        if (addedSubscriptions.length > 0) {
+            const message: ModelRequest = {
+                type: 'metric-history.subscribe',
+                keys: addedSubscriptions.map(getMetricHistoryKey)
+            };
+            sendMessage(message);
+            addedSubscriptions.forEach(k => subscriptionsRef.current.add(k));
+        }
+
+        const { added: addedKeys, removed: removedKeys } = setChanges(selectedKeys, datasetMapRef.current.keys());
+
+        if (removedKeys.length > 0) {            
             removedKeys.forEach(k => datasetMapRef.current.delete(k));
             updateChartData();
         }
         
         if (addedKeys.length > 0) {
-            const message: ModelRequest = {
-                type: 'metric-history.subscribe',
-                keys: addedKeys.map(getMetricHistoryKey)
-            };
-            sendMessage(message);
             fetchJsonData<MetricHistory[]>(getUrl('metric-history'), controller.signal, addedKeys.map(k => JSON.parse(k)), 'POST')
                 .then(data => {
                     if (chartDataVersion !== chartDataVersionRef.current)
@@ -266,7 +302,7 @@ function App() {
         }
 
         return () => controller.abort();
-    }, [selectedModels, selectedMetrics]);
+    }, [selectedModels, selectedMetrics, activeModels]);
 
     const handleMetricCheckboxChange = (event: ChangeEvent<HTMLInputElement>) => {
         setSelectedMetrics(prev => {

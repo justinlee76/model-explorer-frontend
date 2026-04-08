@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEventHandler } from 'react'
-import { type Model } from './Model';
+import { ModelStatus, type Model } from './Model';
 import './App.css'
 
 interface ModelTableProps {
@@ -95,7 +95,7 @@ export function ModelTable({ data, selectedModels, handleModelCheckboxChange }: 
             </thead>
             <tbody>
                 {sortedData.map(r =>
-                    <tr key={r.id} className={r.status === 0 ? 'training' : ''}>
+                    <tr key={r.id} className={r.status === ModelStatus.Training ? 'training' : ''}>
                         <td>
                             <input id={r.id} type='checkbox' value={r.id} checked={selectedModels.has(r.id)} onChange={handleModelCheckboxChange} />
                         </td>
