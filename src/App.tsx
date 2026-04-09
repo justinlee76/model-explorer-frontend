@@ -4,6 +4,8 @@ import { ModelTable } from './ModelTable';
 import { getUrl, fetchJsonData } from './dataUtils';
 import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
 import type { ChartDataset } from 'chart.js';
+import { Trash2 } from 'lucide-react';
+import { ICON_SIZE, STROKE_WIDTH } from './constants';
 
 type MetricChartDataset = ChartDataset<'line', MetricChartDataSeries>;
 
@@ -44,6 +46,10 @@ interface MetricHistoryUpdate {
 interface ModelDelete {
     type: 'model.delete';
     id: string;
+}
+
+interface DeleteModelsResponse {
+    errors: { [id: string]: string };
 }
 
 const handleFetchError = (error: unknown) => {
@@ -290,7 +296,7 @@ function App() {
         }
         
         if (addedKeys.length > 0) {
-            fetchJsonData<MetricHistory[]>(getUrl('metric-history'), controller.signal, addedKeys.map(k => JSON.parse(k)), 'POST')
+            fetchJsonData<MetricHistory[]>(getUrl('metric-history'), controller.signal, 'POST', addedKeys.map(k => JSON.parse(k)))
                 .then(data => {
                     if (chartDataVersion !== chartDataVersionRef.current)
                         return;
@@ -330,6 +336,25 @@ function App() {
         });
     };
 
+    const handleDeleteButtonClicked = () => {
+        const msg = `Delete the following models?\n\n${[...selectedModels].join('\n')}`;
+        if (confirm(msg)) {
+            fetchJsonData<DeleteModelsResponse>(getUrl('delete-models'), undefined, 'POST', [...selectedModels].filter(m => !activeModels.has(m)))
+                .then(data => {
+                    if (Object.keys(data.errors).length > 0) {
+                        const errors = Object.entries(data.errors).map(e => `${e[0]}: ${e[1]}`);
+                        const errorMsg = `The following errors were encountered while deleting models:\n\n${errors.join('\n')}`;
+                        alert(errorMsg);
+                    }
+                });
+            const selectedActive = [...selectedModels].filter(m => activeModels.has(m));
+            if (selectedActive.length > 0) {
+                const alertMsg = `Unable to delete the following models as they are currently being trained:\n\n${selectedActive.join('\n')}`;
+                alert(alertMsg);
+            }
+        }
+    };
+
     return (
         <>
             <div>
@@ -344,6 +369,7 @@ function App() {
                     )}
                 </select>
             </div>
+            <button id='deleteModelsButton' disabled={selectedModels.size === 0} className='simple-button' onClick={handleDeleteButtonClicked}><Trash2 size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />Delete</button>
             <ModelTable data={models} selectedModels={selectedModels} handleModelCheckboxChange={handleModelCheckboxChange} />
         </>
     )

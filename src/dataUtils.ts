@@ -25,7 +25,7 @@ export function getUrl(path: string, query?: { [key: string]: string | string[] 
     return urlHelper.getUrl(path, query);
 }
 
-export async function fetchJsonData<T>(url: string, signal?: AbortSignal, requestData?: unknown, method: string = 'GET'): Promise<T> {
+export async function fetchJsonData<T>(url: string, signal?: AbortSignal, method: string = 'GET', requestData?: unknown): Promise<T> {
     const options: RequestInit = {
         method,
         signal
