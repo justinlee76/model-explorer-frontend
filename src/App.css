@@ -1,6 +1,47 @@
-#root {
-    margin: 0 auto;
+:root {
     --highlight-color: #F0F0F0;
+}
+
+#root {
+    margin: 10px 50px;
+    width: 100vw;
+}
+
+.navbar {
+    display: flex;
+    color: #A0A0A0;
+    cursor: pointer;
+}
+
+.navbar-menu {
+    display: flex;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.navbar-menuitem {
+    padding: 1rem;
+}
+
+.navbar-menuitem.active {
+    color: black;
+}
+
+.navbar-menuitem:hover {
+    color: black;
+    background-color: var(--highlight-color);
+    border-radius: 10px;
+}
+
+.tab-content {
+    display: none;
+    width: 100%;
+    padding: 10px;
+}
+
+.tab-content.active {
+    display: block;
 }
 
 #chartDiv {
