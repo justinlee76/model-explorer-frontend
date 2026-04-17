@@ -1,7 +1,7 @@
 import { useState, useEffect, type ChangeEvent, type ChangeEventHandler, useRef } from 'react';
 import { ModelStatus, type Model } from './Model';
 import { ModelTable } from './ModelTable';
-import { getUrl, fetchJsonData } from './dataUtils';
+import { getUrl, fetchJsonData, handleFetchError } from './dataUtils';
 import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
 import type { ChartDataset } from 'chart.js';
 import { Trash2 } from 'lucide-react';
@@ -51,11 +51,6 @@ interface ModelDelete {
 interface DeleteModelsResponse {
     errors: { [id: string]: string };
 }
-
-const handleFetchError = (error: unknown) => {
-    if (!(error instanceof Error && error.name === 'AbortError'))
-        console.error(error);
-};
 
 export function ModelsTab() {
     const [tags, setTags] = useState<string[]>([]);

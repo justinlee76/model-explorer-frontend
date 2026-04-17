@@ -42,3 +42,9 @@ export async function fetchJsonData<T>(url: string, signal?: AbortSignal, method
     console.log(`fetch response from ${url}`, data);
     return data;
 }
+
+export const handleFetchError = (error: unknown) => {
+    if (!(error instanceof Error && error.name === 'AbortError'))
+        console.error(error);
+};
+
