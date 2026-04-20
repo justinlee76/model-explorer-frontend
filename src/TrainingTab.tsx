@@ -3,6 +3,7 @@ import { useForm, type FieldErrors, type UseFormRegister } from 'react-hook-form
 import { fetchJsonData, getUrl, handleFetchError } from './dataUtils';
 import { ArrowUp } from 'lucide-react';
 import { ICON_SIZE, STROKE_WIDTH } from './constants';
+import { getLogger } from './logging';
 
 interface Task {
     id: string;
@@ -23,6 +24,8 @@ interface AddJobResponse {
     jobId: string | null;
     error: string | null;
 }
+
+const logger = getLogger('TrainingTab');
 
 const validateArgs = (args: string): true | string  => {
   try {
@@ -64,12 +67,12 @@ export function TrainingTab() {
         } else {
             message = `Unknown error ${error}`;
         }
-        console.error(message);
+        logger.error(message);
         setMessage(message);
     };
 
     const onSubmit = (data: JobFormValues) => {
-        console.log('training job form data', data);
+        logger.debug('training job form data', data);
         
         try {
             const args = JSON.parse(data.args);
@@ -93,7 +96,7 @@ export function TrainingTab() {
     };
 
     useEffect(() => {
-        console.log('useEffect on []');
+        logger.debug('useEffect on []');
 
         const controller = new AbortController();
 
@@ -125,7 +128,7 @@ export function TrainingTab() {
             </div>
             <form onSubmit={handleSubmit(onSubmit)}>
                 <div>
-                    <label htmlFor='task'>Task</label>
+                    <label htmlFor='taskId'>Task</label>
                     <select id='taskId' {...register('taskId')}>
                         {tasks.map(t =>
                             <option key={t.id} value={t.id}>{t.fullClassName}</option>

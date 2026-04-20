@@ -6,6 +6,7 @@ import { MetricChart, type MetricChartData, type MetricChartDataSeries } from '.
 import type { ChartDataset } from 'chart.js';
 import { Trash2 } from 'lucide-react';
 import { ICON_SIZE, STROKE_WIDTH } from './constants';
+import { getLogger } from './logging';
 
 type MetricChartDataset = ChartDataset<'line', MetricChartDataSeries>;
 
@@ -52,6 +53,8 @@ interface DeleteModelsResponse {
     errors: { [id: string]: string };
 }
 
+const logger = getLogger('ModelsTab');
+
 export function ModelsTab() {
     const [tags, setTags] = useState<string[]>([]);
     const [selectedTag, setSelectedTag] = useState('');
@@ -82,20 +85,20 @@ export function ModelsTab() {
     const sendMessage = (message: ModelRequest | TagRequest): boolean => {
         if (socketRef.current?.readyState === WebSocket.OPEN) {
             try {
-                console.log('sending message over ws', message);
+                logger.debug('sending message over ws', message);
                 socketRef.current.send(JSON.stringify(message));
                 return true;
             } catch (error) {
-                console.error('error sending message', error);
+                logger.error('error sending message', error);
             }
         }
         else
-            console.warn('Unable to send message as open socket not available');
+            logger.warn('Unable to send message as open socket not available');
         return false;
     };
 
     useEffect(() => {
-        console.log('useEffect on []');
+        logger.debug('useEffect on []');
 
         const controller = new AbortController();
 
@@ -103,13 +106,13 @@ export function ModelsTab() {
             const ws = new WebSocket(url);
 
             ws.onopen = () => {
-                console.log('ws open');
+                logger.debug('ws open');
                 onOpen();
             };
 
             ws.onmessage = (event) => {
                 try {
-                    console.log('received ws message', event.data);
+                    logger.debug('received ws message', event.data);
 
                     const message = JSON.parse(event.data) as ModelMessage;
                     switch (message.type) {
@@ -157,16 +160,16 @@ export function ModelsTab() {
                         }
                     }
                 } catch (error) {
-                    console.error('error processing ws message', error);
+                    logger.error('error processing ws message', error);
                 }
             };
 
             ws.onclose = () => {
-                console.log('ws closed');
+                logger.debug('ws closed');
             };
 
             ws.onerror = (error) => {
-                console.error('ws error', error);
+                logger.error('ws error', error);
             };
 
             return ws;
@@ -200,7 +203,7 @@ export function ModelsTab() {
     }, []);
 
     useEffect(() => {
-        console.log('useEffect on [selectedTag]');
+        logger.debug('useEffect on [selectedTag]');
 
         if (selectedTagRef.current !== '')
             sendMessage({ type: 'tag.unsubscribe', tag: selectedTagRef.current });
@@ -231,7 +234,7 @@ export function ModelsTab() {
     }, [selectedTag]);
 
     useEffect(() => {
-        console.log('useEffect on [selectedModels, selectedMetrics, activeModels]');
+        logger.debug('useEffect on [selectedModels, selectedMetrics, activeModels]');
 
         const setChanges = (current: Iterable<string>, previous: Iterable<string>): { added: string[], removed: string[] } => {
             const currentSet = current instanceof Set ? current : new Set(current);

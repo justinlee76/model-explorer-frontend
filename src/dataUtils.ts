@@ -1,28 +1,17 @@
-class UrlHelper {
-    baseUrl: string;
+import { getLogger } from './logging';
 
-    constructor(baseUrl: string) {
-        this.baseUrl = baseUrl;
-    }
+const logger = getLogger('dataUtils');
 
-    getUrl(path: string, query?: { [key: string]: string | string[] }): string {
-        const url = new URL(path, this.baseUrl);
-        if (query !== undefined) {
-            for (const [key, value] of Object.entries(query)) {
-                if (Array.isArray(value))
-                    value.forEach(v => url.searchParams.append(key, v));
-                else
-                    url.searchParams.set(key, value);
-            }
+const baseUrl = import.meta.env.VITE_API_URL;
+
+export function getUrl(path: string, query?: { [key: string]: string }): string {
+    const url = new URL(path, baseUrl);
+    if (query !== undefined) {
+        for (const [key, value] of Object.entries(query)) {
+            url.searchParams.set(key, value);
         }
-        return url.href;
     }
-}
-
-const urlHelper = new UrlHelper(import.meta.env.VITE_API_URL);
-
-export function getUrl(path: string, query?: { [key: string]: string | string[] }): string {
-    return urlHelper.getUrl(path, query);
+    return url.href;
 }
 
 export async function fetchJsonData<T>(url: string, signal?: AbortSignal, method: string = 'GET', requestData?: unknown): Promise<T> {
@@ -34,17 +23,17 @@ export async function fetchJsonData<T>(url: string, signal?: AbortSignal, method
         options.headers = { 'Content-Type': 'application/json' };
         options.body = JSON.stringify(requestData);
     }
-    console.log('fetch', url, options);
+    logger.debug('fetch', url, options);
     const response = await fetch(url, options);
     if (!response.ok)
         throw new Error(`HTTP error ${response.status}`);
     const data = await response.json()
-    console.log(`fetch response from ${url}`, data);
+    logger.debug(`fetch response from ${url}`, data);
     return data;
 }
 
 export const handleFetchError = (error: unknown) => {
     if (!(error instanceof Error && error.name === 'AbortError'))
-        console.error(error);
+        logger.error('fetch error', error);
 };
 
