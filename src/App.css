@@ -153,3 +153,36 @@ select {
     height: 1rem;
     margin: 0;
 }
+
+.overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.overlay-content {
+    position: relative;
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.overlay-close-button {
+    position: absolute;
+    display: flex;
+    top: 10px;
+    right: 10px;
+    border-radius: 10px;
+    padding: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.overlay-close-button:hover {
+    background-color: var(--highlight-color);
+}

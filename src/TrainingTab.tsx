@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useForm, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import { fetchJsonData, getUrl, handleFetchError } from './dataUtils';
-import { ArrowUp } from 'lucide-react';
+import { Plus, ArrowUp } from 'lucide-react';
 import { ICON_SIZE, STROKE_WIDTH } from './constants';
 import { getLogger } from './logging';
+import { Overlay } from './Overlay';
 
 interface Task {
     id: string;
@@ -51,6 +52,7 @@ const validateKwargs = (kwargs: string): true | string  => {
 export function TrainingTab() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [message, setMessage] = useState('');
+    const [showJobForm, setShowJobForm] = useState(false);
 
     const { register, handleSubmit, formState: { errors, isValid }, reset } = useForm<JobFormValues>({
         mode: 'onBlur',
@@ -88,6 +90,7 @@ export function TrainingTab() {
                         handleJobSubmitError(data.error);
                     else
                         setMessage(`Submitted job ID: ${data.jobId}`);
+                    setShowJobForm(false);
                 })
                 .catch(handleJobSubmitError);
         } catch (error: unknown) {
@@ -96,7 +99,7 @@ export function TrainingTab() {
     };
 
     useEffect(() => {
-        logger.debug('useEffect on []');
+        logger.debug('useEffect on [reset]');
 
         const controller = new AbortController();
 
@@ -124,24 +127,27 @@ export function TrainingTab() {
     return (
         <div className='training-tab'>
             <div className='job-submission'>
+                <button className='simple-button' onClick={() => setShowJobForm(true)}><Plus size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />Add job</button>
                 {message.length > 0 && <div className='job-message'>{message}</div>}
             </div>
-            <form onSubmit={handleSubmit(onSubmit)}>
-                <div>
-                    <label htmlFor='taskId'>Task</label>
-                    <select id='taskId' {...register('taskId')}>
-                        {tasks.map(t =>
-                            <option key={t.id} value={t.id}>{t.fullClassName}</option>
-                        )}
-                    </select>
-                </div>
-                <div className='args-container'>
-                    <ArgsInput label='args' register={register} validate={validateArgs} errors={errors} />
-                    <ArgsInput label='kwargs' register={register} validate={validateKwargs} errors={errors} />
-                </div>
+            <Overlay show={showJobForm} onClose={() => setShowJobForm(false)}>
+                <form onSubmit={handleSubmit(onSubmit)}>
+                    <div>
+                        <label htmlFor='taskId'>Task</label>
+                        <select id='taskId' {...register('taskId')}>
+                            {tasks.map(t =>
+                                <option key={t.id} value={t.id}>{t.fullClassName}</option>
+                            )}
+                        </select>
+                    </div>
+                    <div className='args-container'>
+                        <ArgsInput label='args' register={register} validate={validateArgs} errors={errors} />
+                        <ArgsInput label='kwargs' register={register} validate={validateKwargs} errors={errors} />
+                    </div>
 
-                <button type='submit' disabled={!isValid} className='simple-button'><ArrowUp size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />Submit</button>
-            </form>
+                    <button type='submit' disabled={!isValid} className='simple-button'><ArrowUp size={ICON_SIZE} strokeWidth={STROKE_WIDTH} />Submit</button>
+                </form>
+            </Overlay>
         </div>
     );
 }
