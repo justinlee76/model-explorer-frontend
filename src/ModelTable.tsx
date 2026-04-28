@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEventHandler } from 'react'
-import { ModelStatus, type Model } from './Model';
+import { ModelStatus, type Model } from './types';
 import './App.css'
+import { formatColumnValue, type AnyColDef, type ColDef } from './tableUtils';
 
 interface ModelTableProps {
     data: Model[];
@@ -10,26 +11,11 @@ interface ModelTableProps {
 
 type ColName = keyof Model;
 
-interface ColDef<K extends ColName> {
-    key: K;
-    name: string;
-    format?: (v: Model[K]) => string;
-}
-
-type AnyColDef = { [K in ColName]: ColDef<K> }[ColName];
-
 type SortDir = -1 | 1;
 
 const toPrimitive = (v: Model[ColName]): string | number => typeof v === 'object' ? JSON.stringify(v) : v;
 
-const formatColumnValue = (model: Model, col: AnyColDef): string => {
-    const val = model[col.key];
-    if (typeof col.format === 'undefined')
-        return typeof val === 'object' ? JSON.stringify(val) : val.toString();
-    return (col.format as (v: typeof val) => string)(val);
-};
-
-const colDefs: AnyColDef[] = [
+const colDefs: AnyColDef<Model>[] = [
     {
         key: 'datetime', name: 'Date & Time', format: v =>
             new Date(v).toLocaleString(undefined, {
@@ -101,7 +87,7 @@ export function ModelTable({ data, selectedModels, handleModelCheckboxChange }: 
                         </td>
                         {
                             colDefs.map(c => <td key={c.key}>
-                                {formatColumnValue(r, c)}
+                                {formatColumnValue(r, c as ColDef<Model, typeof c.key>)}
                             </td>)
                         }
                     </tr>

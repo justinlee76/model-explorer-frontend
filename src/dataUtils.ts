@@ -27,7 +27,9 @@ export async function fetchJsonData<T>(url: string, signal?: AbortSignal, method
     const response = await fetch(url, options);
     if (!response.ok)
         throw new Error(`HTTP error ${response.status}`);
-    const data = await response.json()
+    if (response.status === 204)
+        return null as T;
+    const data = await response.json() as T;
     logger.debug(`fetch response from ${url}`, data);
     return data;
 }

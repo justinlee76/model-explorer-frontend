@@ -1,5 +1,5 @@
 import { useState, useEffect, type ChangeEvent, type ChangeEventHandler, useRef } from 'react';
-import { ModelStatus, type Model } from './Model';
+import { ModelStatus, type Model } from './types';
 import { ModelTable } from './ModelTable';
 import { getUrl, fetchJsonData, handleFetchError } from './dataUtils';
 import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
