@@ -39,3 +39,27 @@ export const handleFetchError = (error: unknown) => {
         logger.error('fetch error', error);
 };
 
+export function createWebSocket(url: string, onmessage: (event: MessageEvent) => void): { socket: WebSocket | null, promise: Promise<void> } {
+    let socket: WebSocket | null = null;
+    const promise = new Promise<void>((resolve, reject) => {
+        socket = new WebSocket(url);
+
+        socket.onopen = () => {
+            logger.debug('ws open');
+            resolve();
+        };
+
+        socket.onmessage = onmessage;
+
+        socket.onclose = () => {
+            logger.debug('ws closed');
+        };
+
+        socket.onerror = (error) => {
+            logger.error('ws error', error);
+            reject(error);
+        };
+    });
+
+    return { socket, promise };
+}

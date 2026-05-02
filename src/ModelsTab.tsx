@@ -1,7 +1,7 @@
 import { useState, useEffect, type ChangeEvent, type ChangeEventHandler, useRef } from 'react';
 import { ModelStatus, type Model } from './types';
 import { ModelTable } from './ModelTable';
-import { getUrl, fetchJsonData, handleFetchError } from './dataUtils';
+import { getUrl, fetchJsonData, handleFetchError, createWebSocket } from './dataUtils';
 import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
 import type { ChartDataset } from 'chart.js';
 import { Trash2 } from 'lucide-react';
@@ -9,6 +9,8 @@ import { ICON_SIZE, STROKE_WIDTH } from './constants';
 import { getLogger } from './logging';
 
 type MetricChartDataset = ChartDataset<'line', MetricChartDataSeries>;
+
+// API DTOs
 
 interface MetricHistoryKey {
     id: string;
@@ -18,6 +20,12 @@ interface MetricHistoryKey {
 interface MetricHistory extends MetricHistoryKey {
     metricHistory: number[];
 }
+
+interface DeleteModelsResponse {
+    errors: { [id: string]: string };
+}
+
+// Web socket DTOs
 
 interface TagRequest {
     type: 'tag.subscribe' | 'tag.unsubscribe';
@@ -29,13 +37,6 @@ interface ModelRequest {
     keys: MetricHistoryKey[];
 }
 
-type ModelMessage = ModelInsertOrUpdate | MetricHistoryUpdate | ModelDelete;
-
-interface ModelInsertOrUpdate {
-    type: 'model.insert' | 'model.update';
-    model: Model;
-}
-
 interface MetricHistoryUpdate {
     type: 'metric-history.update';
     id: string;
@@ -44,14 +45,17 @@ interface MetricHistoryUpdate {
     value: number;
 }
 
+interface ModelInsertOrUpdate {
+    type: 'model.insert' | 'model.update';
+    model: Model;
+}
+
 interface ModelDelete {
     type: 'model.delete';
     id: string;
 }
 
-interface DeleteModelsResponse {
-    errors: { [id: string]: string };
-}
+type ModelMessage = ModelInsertOrUpdate | MetricHistoryUpdate | ModelDelete;
 
 const logger = getLogger('ModelsTab');
 
@@ -102,80 +106,63 @@ export function ModelsTab() {
 
         const controller = new AbortController();
 
-        const initWebSocket = (url: string, onOpen: () => void): WebSocket => {
-            const ws = new WebSocket(url);
+        const { socket, promise } = createWebSocket(getUrl('ws/models').replace(/^http/, 'ws'), (event) => {
+            try {
+                logger.debug('received ws message', event.data);
 
-            ws.onopen = () => {
-                logger.debug('ws open');
-                onOpen();
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    logger.debug('received ws message', event.data);
-
-                    const message = JSON.parse(event.data) as ModelMessage;
-                    switch (message.type) {
-                        case 'metric-history.update': {
-                            const { id, metricName, index, value } = message;
-                            const dataset = datasetMapRef.current.get(keyToString(id, metricName));
-                            if (dataset !== undefined) {
-                                dataset.data[index] = { x: index + 1, y: value };
-                                updateChartData();
-                            }
-                            break;
+                const message = JSON.parse(event.data) as ModelMessage;
+                switch (message.type) {
+                    case 'metric-history.update': {
+                        const { id, metricName, index, value } = message;
+                        const dataset = datasetMapRef.current.get(keyToString(id, metricName));
+                        if (dataset !== undefined) {
+                            dataset.data[index] = { x: index + 1, y: value };
+                            updateChartData();
                         }
-                        case 'model.insert': {
-                            const { model } = message;
-                            if (model.tag === selectedTagRef.current) {
-                                setModels(prev => [...prev, model]);
-                                setSelectedModels(prev => new Set<string>([...prev, model.id]));
-                                if (model.status === ModelStatus.Training)
-                                    setActiveModels(prev => new Set<string>([...prev, model.id]));                           
-                            }
-                            break;
-                        }
-                        case 'model.update': {
-                            const { model } = message;
-                            if (model.tag === selectedTagRef.current) {
-                                setModels(prev => prev.map(m => m.id === model.id ? model : m));
-                                setActiveModels(prev => {
-                                    if (model.status === ModelStatus.Training) {
-                                        if (!prev.has(model.id))
-                                            return new Set<string>([...prev, model.id]);
-                                    }
-                                    else if (prev.has(model.id))
-                                        return new Set<string>([...prev].filter(m => m !== model.id));
-                                    return prev;
-                                });
-                            }
-                            break;
-                        }
-                        case 'model.delete': {
-                            const { id } = message;
-                            setModels(prev => prev.filter(m => m.id !== id));
-                            setSelectedModels(prev => new Set<string>([...prev].filter(m => m !== id)));
-                            setActiveModels(prev => prev.has(id) ? new Set<string>([...prev].filter(m => m !== id)) : prev);
-                            break;
-                        }
+                        break;
                     }
-                } catch (error) {
-                    logger.error('error processing ws message', error);
+                    case 'model.insert': {
+                        const { model } = message;
+                        if (model.tag === selectedTagRef.current) {
+                            setModels(prev => [...prev, model]);
+                            setSelectedModels(prev => new Set<string>([...prev, model.id]));
+                            if (model.status === ModelStatus.Training)
+                                setActiveModels(prev => new Set<string>([...prev, model.id]));                           
+                        }
+                        break;
+                    }
+                    case 'model.update': {
+                        const { model } = message;
+                        if (model.tag === selectedTagRef.current) {
+                            setModels(prev => prev.map(m => m.id === model.id ? model : m));
+                            setActiveModels(prev => {
+                                if (model.status === ModelStatus.Training) {
+                                    if (!prev.has(model.id))
+                                        return new Set<string>([...prev, model.id]);
+                                }
+                                else if (prev.has(model.id))
+                                    return new Set<string>([...prev].filter(m => m !== model.id));
+                                return prev;
+                            });
+                        }
+                        break;
+                    }
+                    case 'model.delete': {
+                        const { id } = message;
+                        setModels(prev => prev.filter(m => m.id !== id));
+                        setSelectedModels(prev => new Set<string>([...prev].filter(m => m !== id)));
+                        setActiveModels(prev => prev.has(id) ? new Set<string>([...prev].filter(m => m !== id)) : prev);
+                        break;
+                    }
                 }
-            };
+            } catch (error) {
+                logger.error('error processing ws message', error);
+            }
+        });
 
-            ws.onclose = () => {
-                logger.debug('ws closed');
-            };
+        socketRef.current = socket;
 
-            ws.onerror = (error) => {
-                logger.error('ws error', error);
-            };
-
-            return ws;
-        };
-
-        const loadData = () => {
+        promise.finally(() => {
             fetchJsonData<string[]>(getUrl('metric-names'), controller.signal)
                 .then(data => {
                     setMetrics(data);
@@ -189,15 +176,12 @@ export function ModelsTab() {
                     if (data.length > 0)
                         setSelectedTag(data[0]);
                 })
-                .catch(handleFetchError);            
-        };
-
-        const ws = initWebSocket(getUrl('ws').replace(/^http/, 'ws'), loadData);
-        socketRef.current = ws;
+                .catch(handleFetchError);   
+        });
 
         return () => {
             controller.abort();
-            ws.close();
+            socketRef.current?.close();
             socketRef.current = null;
         }
     }, []);
