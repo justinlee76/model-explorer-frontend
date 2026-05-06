@@ -226,3 +226,13 @@ select {
     outline: 2px solid black;
     border-radius: 2px;
 }
+
+.job-messages {
+    font-family: ui-monospace, Menlo, Consolas, 'Courier New', monospace;
+    font-size: 0.8rem;
+    overflow-wrap: break-word;
+    padding: 0.8rem;
+    overflow-y: auto;
+    border: 1px solid;
+    height: 35vh;
+}

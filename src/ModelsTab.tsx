@@ -189,17 +189,12 @@ export function ModelsTab() {
     useEffect(() => {
         logger.debug('useEffect on [selectedTag]');
 
-        if (selectedTagRef.current !== '')
-            sendMessage({ type: 'tag.unsubscribe', tag: selectedTagRef.current });
-
-        if (selectedTag !== '')
-            sendMessage({ type: 'tag.subscribe', tag: selectedTag });
-
         selectedTagRef.current = selectedTag;
 
         const controller = new AbortController();
 
-        if (selectedTag !== '') {
+        if (selectedTag) {
+            sendMessage({ type: 'tag.subscribe', tag: selectedTag });
             fetchJsonData<Model[]>(getUrl('models', { tag: selectedTag }), controller.signal)
                 .then(data => {
                     setModels(data);
@@ -214,7 +209,11 @@ export function ModelsTab() {
                 .catch(handleFetchError);
         }
 
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+            if (selectedTag)
+                sendMessage({ type: 'tag.unsubscribe', tag: selectedTag });
+        }
     }, [selectedTag]);
 
     useEffect(() => {

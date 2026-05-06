@@ -4,6 +4,11 @@ import type { Job, Task } from './types';
 import { createWebSocket, fetchJsonData, getUrl, handleFetchError } from './dataUtils';
 import { getLogger } from './logging';
 import { JobsTable } from './JobsTable';
+import { JobMessageList } from './JobMessageList';
+
+interface TrainingTabProps {
+    active: boolean
+}
 
 // Web socket DTOs
 
@@ -17,20 +22,46 @@ interface JobDelete {
     id: string;
 }
 
-type JobMessage = JobInsertOrUpdate | JobDelete;
+interface JobMessagesRequest {
+    type: 'job.messages.subscribe' | 'job.messages.unsubscribe';
+    id: string;
+}
+
+interface JobMessagesUpdate {
+    type: 'job.messages.update';
+    id: string;
+    index: number;
+    message: string;
+}
+
+type JobMessage = JobInsertOrUpdate | JobDelete | JobMessagesUpdate;
 
 const logger = getLogger('TrainingTab');
 
-export function TrainingTab() {
+export function TrainingTab({ active }: TrainingTabProps) {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [jobs, setJobs] = useState<Job[]>([]);
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+    const [jobMessages, setJobMessages] = useState<string[]>([]);
+
     const socketRef = useRef<WebSocket | null>(null);
     const selectedJobIdRef = useRef<string | null>(null);
 
-    useEffect(() => {
-        selectedJobIdRef.current = selectedJobId;
-    }, [selectedJobId]);
+    const sendMessage = (message: JobMessagesRequest): boolean => {
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+            try {
+                logger.debug('sending message over ws', message);
+                socketRef.current.send(JSON.stringify(message));
+                return true;
+            } catch (error) {
+                logger.error('error sending message', error);
+            }
+        }
+        else
+            logger.warn('Unable to send message as open socket not available');
+        return false;
+    };
+
 
     useEffect(() => {
         logger.debug('useEffect on []');
@@ -65,14 +96,27 @@ export function TrainingTab() {
                     }
                     case 'job.delete': {
                         const { id } = message;
-                        if (id === selectedJobIdRef.current)
+                        if (id === selectedJobIdRef.current) {
                             setSelectedJobId(null);
+                            setJobMessages([]);
+                        }
                         setJobs(prev => {
                             const index = prev.findIndex(j => j.id === id);
                             if (index !== -1)
                                 return prev.toSpliced(index, 1);
                             return prev;
                         });
+                        break;
+                    }
+                    case 'job.messages.update': {
+                        const { id, index, message: jobMessage } = message;
+                        if (id === selectedJobIdRef.current) {
+                            setJobMessages(prev => {
+                                const jobMessages = [...prev];
+                                jobMessages[index] = jobMessage;
+                                return jobMessages;
+                            });
+                        }
                         break;
                     }
                 }
@@ -103,11 +147,31 @@ export function TrainingTab() {
             socketRef.current = null;
         };
     }, []);
+
+    useEffect(() => {
+        logger.debug('useEffect on [selectedJobId]');
+        
+        selectedJobIdRef.current = selectedJobId;
+
+        if (!selectedJobId)
+            return;
+
+        sendMessage({ type: 'job.messages.subscribe', id: selectedJobId });
+
+        fetchJsonData<string[]>(getUrl(`jobs/${selectedJobId}/messages`))
+            .then(setJobMessages)
+            .catch(handleFetchError);
+
+        return () => {
+            sendMessage({ type: 'job.messages.unsubscribe', id: selectedJobId });
+        };
+    }, [selectedJobId]);
     
     return (
         <div className='training-tab'>
             <JobForm tasks={tasks} />
             <JobsTable jobs={jobs} tasks={tasks} selectedJobId={selectedJobId} handleJobClick={setSelectedJobId} />
+            <JobMessageList active={active} messages={jobMessages} />
         </div>
     );
 }

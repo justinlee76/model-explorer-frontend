@@ -7,14 +7,14 @@ interface TabDef {
     content: JSX.Element;
 }
 
-const tabDefs: TabDef[] = [
-    { name: 'Models', content: <ModelsTab /> },
-    { name: 'Training', content: <TrainingTab /> }
-];
-
 export default function App() {
     const [tab, setTab] = useState('Models');
     
+    const tabDefs: TabDef[] = [
+        { name: 'Models', content: <ModelsTab /> },
+        { name: 'Training', content: <TrainingTab active={tab === 'Training'} /> }
+    ];
+
     return (
         <>
             <nav className='navbar'>
