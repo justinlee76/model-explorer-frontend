@@ -18,7 +18,7 @@ interface MetricHistoryKey {
 }
 
 interface MetricHistory extends MetricHistoryKey {
-    metricHistory: number[];
+    values: number[];
 }
 
 interface DeleteModelsResponse {
@@ -230,7 +230,7 @@ export function ModelsTab() {
 
         const toDataset = (history: MetricHistory): MetricChartDataset => ({
             label: `${history.id}: ${history.metricName}`,
-            data: history.metricHistory.map((v, i) => ({ x: i + 1, y: v }))
+            data: history.values.map((v, i) => ({ x: i + 1, y: v }))
         });
 
         const controller = new AbortController();
