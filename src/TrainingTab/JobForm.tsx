@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useForm, type FieldErrors, type UseFormRegister } from 'react-hook-form';
-import { fetchJsonData, getUrl, handleFetchError } from './dataUtils';
 import { Plus, ArrowUp } from 'lucide-react';
-import { ICON_SIZE, STROKE_WIDTH } from './constants';
-import { getLogger } from './logging';
-import { Overlay } from './Overlay';
-import type { Task } from './types';
+import { fetchJsonData, getUrl, handleFetchError } from '@/dataUtils';
+import { ICON_SIZE, STROKE_WIDTH } from '@/constants';
+import { getLogger } from '@/logging';
+import { Overlay } from '@/Overlay';
+import type { Task } from '@/types';
 
 interface JobInputs {
     taskId: string;

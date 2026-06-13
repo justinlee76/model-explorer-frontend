@@ -1,8 +1,8 @@
 import { Square, Trash2 } from "lucide-react";
-import { fetchJsonData, getUrl, handleFetchError } from "./dataUtils";
-import { formatColumnValue, type AnyColDef, type ColDef } from "./tableUtils";
-import type { Job, Task } from "./types";
-import { ICON_SIZE, STROKE_WIDTH } from "./constants";
+import { fetchJsonData, getUrl, handleFetchError } from "@/dataUtils";
+import { formatColumnValue, type AnyColDef, type ColDef } from "@/tableUtils";
+import type { Job, Task } from "@/types";
+import { ICON_SIZE, STROKE_WIDTH } from "@/constants";
 
 interface JobsTableProps {
     jobs: Job[];

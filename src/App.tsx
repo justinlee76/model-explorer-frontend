@@ -1,6 +1,6 @@
 import { useState, type JSX } from 'react';
-import { ModelsTab } from './ModelsTab';
-import { TrainingTab } from './TrainingTab';
+import { ModelsTab } from '@/ModelsTab/ModelsTab';
+import { TrainingTab } from '@/TrainingTab/TrainingTab';
 
 interface TabDef {
     name: string;

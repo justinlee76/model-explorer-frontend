@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Job, Task } from '@/types';
+import { createWebSocket, fetchJsonData, getUrl, handleFetchError } from '@/dataUtils';
+import { getLogger } from '@/logging';
 import { JobForm } from './JobForm';
-import type { Job, Task } from './types';
-import { createWebSocket, fetchJsonData, getUrl, handleFetchError } from './dataUtils';
-import { getLogger } from './logging';
 import { JobsTable } from './JobsTable';
 import { JobMessageList } from './JobMessageList';
 

@@ -1,7 +1,7 @@
 import { useMemo, useState, type ChangeEventHandler } from 'react'
-import { ModelStatus, type Model } from './types';
-import './App.css'
-import { formatColumnValue, type AnyColDef, type ColDef } from './tableUtils';
+import { ModelStatus, type Model } from '@/types';
+import '@/App.css'
+import { formatColumnValue, type AnyColDef, type ColDef } from '@/tableUtils';
 
 interface ModelTableProps {
     data: Model[];

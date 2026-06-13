@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
-import { getLogger } from './logging';
+import { getLogger } from '@/logging';
 
 const logger = getLogger('JobMessageList');
 

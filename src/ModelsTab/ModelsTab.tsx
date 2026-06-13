@@ -1,12 +1,12 @@
 import { useState, useEffect, type ChangeEvent, type ChangeEventHandler, useRef } from 'react';
-import { ModelStatus, type Model } from './types';
-import { ModelTable } from './ModelTable';
-import { getUrl, fetchJsonData, handleFetchError, createWebSocket } from './dataUtils';
-import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
 import type { ChartDataset } from 'chart.js';
 import { Trash2 } from 'lucide-react';
-import { ICON_SIZE, STROKE_WIDTH } from './constants';
-import { getLogger } from './logging';
+import { ModelStatus, type Model } from '@/types';
+import { getUrl, fetchJsonData, handleFetchError, createWebSocket } from '@/dataUtils';
+import { ICON_SIZE, STROKE_WIDTH } from '@/constants';
+import { getLogger } from '@/logging';
+import { ModelTable } from './ModelTable';
+import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
 
 type MetricChartDataset = ChartDataset<'line', MetricChartDataSeries>;
 
