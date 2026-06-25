@@ -19,6 +19,18 @@ export interface Model {
     status: ModelStatus;
 }
 
+export interface MetricHistoryKey {
+    id: string;
+    metricName: string;
+}
+
+export interface MetricHistoryValue {
+    id: string;
+    metricName: string;
+    index: number;
+    value: number;
+}
+
 export interface Task {
     id: string;
     fullClassName: string;
@@ -43,4 +55,10 @@ export interface Job {
     kwargs: { [key: string]: unknown };
     status: JobStatus;
     modelId: string | null;
+}
+
+export interface JobLogMessage {
+    id: string;
+    index: number;
+    message: string;
 }

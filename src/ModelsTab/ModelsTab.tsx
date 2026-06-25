@@ -1,21 +1,17 @@
 import { useState, useEffect, type ChangeEvent, type ChangeEventHandler, useRef } from 'react';
 import type { ChartDataset } from 'chart.js';
 import { Trash2 } from 'lucide-react';
-import { ModelStatus, type Model } from '@/types';
-import { getUrl, fetchJsonData, handleFetchError, createWebSocket } from '@/dataUtils';
+import { ModelStatus, type MetricHistoryKey, type MetricHistoryValue, type Model } from '@/types';
+import { getUrl, fetchJsonData, handleFetchError, messagingPlugin } from '@/dataUtils';
 import { ICON_SIZE, STROKE_WIDTH } from '@/constants';
 import { getLogger } from '@/logging';
 import { ModelTable } from './ModelTable';
 import { MetricChart, type MetricChartData, type MetricChartDataSeries } from './MetricChart';
+import type { ModelsChangeNotifier } from '@/messaging/messaging.types';
 
 type MetricChartDataset = ChartDataset<'line', MetricChartDataSeries>;
 
 // API DTOs
-
-interface MetricHistoryKey {
-    id: string;
-    metricName: string;
-}
 
 interface MetricHistory extends MetricHistoryKey {
     values: number[];
@@ -24,38 +20,6 @@ interface MetricHistory extends MetricHistoryKey {
 interface DeleteModelsResponse {
     errors: { [id: string]: string };
 }
-
-// Web socket DTOs
-
-interface TagRequest {
-    type: 'tag.subscribe' | 'tag.unsubscribe';
-    tag: string;
-}
-
-interface ModelRequest {
-    type: 'metric-history.subscribe' | 'metric-history.unsubscribe';
-    keys: MetricHistoryKey[];
-}
-
-interface MetricHistoryUpdate {
-    type: 'metric-history.update';
-    id: string;
-    metricName: string;
-    index: number;
-    value: number;
-}
-
-interface ModelInsertOrUpdate {
-    type: 'model.insert' | 'model.update';
-    model: Model;
-}
-
-interface ModelDelete {
-    type: 'model.delete';
-    id: string;
-}
-
-type ModelMessage = ModelInsertOrUpdate | MetricHistoryUpdate | ModelDelete;
 
 const logger = getLogger('ModelsTab');
 
@@ -75,7 +39,7 @@ export function ModelsTab() {
     const datasetMapRef = useRef(new Map<string, MetricChartDataset>());
     const subscriptionsRef = useRef(new Set<string>());
 
-    const socketRef = useRef<WebSocket | null>(null);
+    const notifier = useRef<ModelsChangeNotifier | null>(null);
 
     const updateChartData = () => {
         setChartData(
@@ -86,81 +50,53 @@ export function ModelsTab() {
     const keyToString = (id: string, metricName: string): string => JSON.stringify({ id, metricName });
     const getMetricHistoryKey = (keyStr: string): MetricHistoryKey => JSON.parse(keyStr);
 
-    const sendMessage = (message: ModelRequest | TagRequest): boolean => {
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
-            try {
-                logger.debug('sending message over ws', message);
-                socketRef.current.send(JSON.stringify(message));
-                return true;
-            } catch (error) {
-                logger.error('error sending message', error);
-            }
-        }
-        else
-            logger.warn('Unable to send message as open socket not available');
-        return false;
-    };
-
     useEffect(() => {
         logger.debug('useEffect on []');
 
         const controller = new AbortController();
 
-        const { socket, promise } = createWebSocket(getUrl('ws/models').replace(/^http/, 'ws'), (event) => {
-            try {
-                logger.debug('received ws message', event.data);
+        notifier.current = messagingPlugin.getModelsChangeNotifier({
+            onUpdateMetricHistory(message: MetricHistoryValue): void {
+                const { id, metricName, index, value } = message;
+                const dataset = datasetMapRef.current.get(keyToString(id, metricName));
+                if (dataset !== undefined) {
+                    dataset.data[index] = { x: index + 1, y: value };
+                    updateChartData();
+                }  
+            },
 
-                const message = JSON.parse(event.data) as ModelMessage;
-                switch (message.type) {
-                    case 'metric-history.update': {
-                        const { id, metricName, index, value } = message;
-                        const dataset = datasetMapRef.current.get(keyToString(id, metricName));
-                        if (dataset !== undefined) {
-                            dataset.data[index] = { x: index + 1, y: value };
-                            updateChartData();
+            onInsert(model: Model): void {
+                if (model.tag === selectedTagRef.current) {
+                    setModels(prev => [...prev, model]);
+                    setSelectedModels(prev => new Set<string>([...prev, model.id]));
+                    if (model.status === ModelStatus.Training)
+                        setActiveModels(prev => new Set<string>([...prev, model.id]));
+                } 
+            },
+
+            onUpdate(model: Model): void {
+                if (model.tag === selectedTagRef.current) {
+                    setModels(prev => prev.map(m => m.id === model.id ? model : m));
+                    setActiveModels(prev => {
+                        if (model.status === ModelStatus.Training) {
+                            if (!prev.has(model.id))
+                                return new Set<string>([...prev, model.id]);
                         }
-                        break;
-                    }
-                    case 'model.insert': {
-                        const { model } = message;
-                        if (model.tag === selectedTagRef.current) {
-                            setModels(prev => [...prev, model]);
-                            setSelectedModels(prev => new Set<string>([...prev, model.id]));
-                            if (model.status === ModelStatus.Training)
-                                setActiveModels(prev => new Set<string>([...prev, model.id]));                           
-                        }
-                        break;
-                    }
-                    case 'model.update': {
-                        const { model } = message;
-                        if (model.tag === selectedTagRef.current) {
-                            setModels(prev => prev.map(m => m.id === model.id ? model : m));
-                            setActiveModels(prev => {
-                                if (model.status === ModelStatus.Training) {
-                                    if (!prev.has(model.id))
-                                        return new Set<string>([...prev, model.id]);
-                                }
-                                else if (prev.has(model.id))
-                                    return new Set<string>([...prev].filter(m => m !== model.id));
-                                return prev;
-                            });
-                        }
-                        break;
-                    }
-                    case 'model.delete': {
-                        const { id } = message;
-                        setModels(prev => prev.filter(m => m.id !== id));
-                        setSelectedModels(prev => new Set<string>([...prev].filter(m => m !== id)));
-                        setActiveModels(prev => prev.has(id) ? new Set<string>([...prev].filter(m => m !== id)) : prev);
-                        break;
-                    }
-                }
-            } catch (error) {
-                logger.error('error processing ws message', error);
+                        else if (prev.has(model.id))
+                            return new Set<string>([...prev].filter(m => m !== model.id));
+                        return prev;
+                    });
+                } 
+            },
+
+            onDelete(id: string): void {
+                setModels(prev => prev.filter(m => m.id !== id));
+                setSelectedModels(prev => new Set<string>([...prev].filter(m => m !== id)));
+                setActiveModels(prev => prev.has(id) ? new Set<string>([...prev].filter(m => m !== id)) : prev);
             }
         });
 
-        socketRef.current = socket;
+        const promise = notifier.current.start();
 
         promise.finally(() => {
             fetchJsonData<string[]>(getUrl('metric-names'), controller.signal)
@@ -181,8 +117,7 @@ export function ModelsTab() {
 
         return () => {
             controller.abort();
-            socketRef.current?.close();
-            socketRef.current = null;
+            notifier.current!.cleanup();
         }
     }, []);
 
@@ -194,7 +129,7 @@ export function ModelsTab() {
         const controller = new AbortController();
 
         if (selectedTag) {
-            sendMessage({ type: 'tag.subscribe', tag: selectedTag });
+            notifier.current!.subscribeTag(selectedTag);
             fetchJsonData<Model[]>(getUrl('models', { tag: selectedTag }), controller.signal)
                 .then(data => {
                     setModels(data);
@@ -212,7 +147,7 @@ export function ModelsTab() {
         return () => {
             controller.abort();
             if (selectedTag)
-                sendMessage({ type: 'tag.unsubscribe', tag: selectedTag });
+                notifier.current!.unsubscribeTag(selectedTag);
         }
     }, [selectedTag]);
 
@@ -252,20 +187,12 @@ export function ModelsTab() {
         const { added: addedSubscriptions, removed: removedSubscriptions } = setChanges(requiredSubscriptions, subscriptionsRef.current);
 
         if (removedSubscriptions.length > 0) {
-            const message: ModelRequest = {
-                type: 'metric-history.unsubscribe',
-                keys: removedSubscriptions.map(getMetricHistoryKey)
-            };
-            sendMessage(message);
+            notifier.current!.unsubscribeMetricHistory(removedSubscriptions.map(getMetricHistoryKey));
             removedSubscriptions.forEach(k => subscriptionsRef.current.delete(k));
         }
 
         if (addedSubscriptions.length > 0) {
-            const message: ModelRequest = {
-                type: 'metric-history.subscribe',
-                keys: addedSubscriptions.map(getMetricHistoryKey)
-            };
-            sendMessage(message);
+            notifier.current!.subscribeMetricHistory(addedSubscriptions.map(getMetricHistoryKey));
             addedSubscriptions.forEach(k => subscriptionsRef.current.add(k));
         }
 

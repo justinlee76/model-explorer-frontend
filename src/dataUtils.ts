@@ -1,8 +1,11 @@
 import { getLogger } from './logging';
+import { WebSocketPlugin } from './messaging/WebSocketPlugin';
 
 const logger = getLogger('dataUtils');
 
 const baseUrl = import.meta.env.VITE_API_URL;
+
+export const messagingPlugin = new WebSocketPlugin();
 
 export function getUrl(path: string, query?: { [key: string]: string }): string {
     const url = new URL(path, baseUrl);
@@ -38,28 +41,3 @@ export const handleFetchError = (error: unknown) => {
     if (!(error instanceof Error && error.name === 'AbortError'))
         logger.error('fetch error', error);
 };
-
-export function createWebSocket(url: string, onmessage: (event: MessageEvent) => void): { socket: WebSocket | null, promise: Promise<void> } {
-    let socket: WebSocket | null = null;
-    const promise = new Promise<void>((resolve, reject) => {
-        socket = new WebSocket(url);
-
-        socket.onopen = () => {
-            logger.debug('ws open');
-            resolve();
-        };
-
-        socket.onmessage = onmessage;
-
-        socket.onclose = () => {
-            logger.debug('ws closed');
-        };
-
-        socket.onerror = (error) => {
-            logger.error('ws error', error);
-            reject(error);
-        };
-    });
-
-    return { socket, promise };
-}
