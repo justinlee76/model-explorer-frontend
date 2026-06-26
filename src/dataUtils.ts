@@ -1,11 +1,29 @@
 import { getLogger } from './logging';
+import type { MessagingPlugin } from './messaging/messaging.types';
+import { SignalRPlugin } from './messaging/SignalRPlugin';
 import { WebSocketPlugin } from './messaging/WebSocketPlugin';
 
 const logger = getLogger('dataUtils');
 
 const baseUrl = import.meta.env.VITE_API_URL;
 
-export const messagingPlugin = new WebSocketPlugin();
+type MessagingTransport = 'signalr' | 'websocket';
+
+function createMessagingPlugin(): MessagingPlugin {
+    const transport = (import.meta.env.VITE_MESSAGING_TRANSPORT ?? 'websocket').toLowerCase() as MessagingTransport;
+
+    switch (transport) {
+        case 'signalr':
+            return new SignalRPlugin();
+        case 'websocket':
+            return new WebSocketPlugin();
+        default:
+            logger.warn(`Unknown VITE_MESSAGING_TRANSPORT "${transport}", using websocket`);
+            return new WebSocketPlugin();
+    }
+}
+
+export const messagingPlugin = createMessagingPlugin();
 
 export function getUrl(path: string, query?: { [key: string]: string }): string {
     const url = new URL(path, baseUrl);
