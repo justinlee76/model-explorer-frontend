@@ -88,6 +88,10 @@ select {
     padding: 0.5rem;
 }
 
+.data-table tbody tr:nth-child(even) {
+  background-color: #cfe2f3;
+}
+
 .sortable-table th {
     user-select: none;
 }
@@ -208,12 +212,13 @@ select {
 }
 
 .selectable-table tbody tr:hover {
-    background-color: var(--highlight-color);
+    background-color: #9fc5e8;
     cursor: pointer;
 }
 
 .selectable-table tbody tr.selected-row {
-    background-color: #E0E0E0
+    background-color: #1e6091;
+    color: #ffffff;
 }
 
 .job-action {
