@@ -11,17 +11,20 @@
 .navbar {
     display: flex;
     color: #B0B0B0;
-    cursor: pointer;
 }
 
 .navbar-menu {
     display: flex;
-    list-style: none;
-    padding: 0;
-    margin: 0;
+    gap: 0.25rem;
 }
 
 .navbar-menuitem {
+    appearance: none;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
     padding: 1rem;
     font-weight: bold;
 }
@@ -33,17 +36,18 @@
 .navbar-menuitem:hover {
     color: black;
     background-color: var(--highlight-color);
-    border-radius: 10px;
+    border-radius: 8px;
+}
+
+.navbar-menuitem:focus-visible {
+    outline: 2px solid black;
+    outline-offset: 2px;
+    border-radius: 8px;
 }
 
 .tab-content {
-    display: none;
     width: 100%;
     padding: 10px;
-}
-
-.tab-content.active {
-    display: block;
 }
 
 #chartDiv {

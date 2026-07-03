@@ -5,7 +5,7 @@ import { WebSocketPlugin } from './messaging/WebSocketPlugin';
 
 const logger = getLogger('dataUtils');
 
-const baseUrl = import.meta.env.VITE_API_URL;
+const baseUrl = import.meta.env.VITE_API_URL ?? new URL('/api/', window.location.origin).href;
 
 type MessagingTransport = 'signalr' | 'websocket';
 

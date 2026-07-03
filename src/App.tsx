@@ -2,13 +2,15 @@ import { useState, type JSX } from 'react';
 import { ModelsTab } from '@/ModelsTab/ModelsTab';
 import { TrainingTab } from '@/TrainingTab/TrainingTab';
 
+type TabName = 'Models' | 'Training';
+
 interface TabDef {
-    name: string;
+    name: TabName;
     content: JSX.Element;
 }
 
 export default function App() {
-    const [tab, setTab] = useState('Models');
+    const [tab, setTab] = useState<TabName>('Models');
     
     const tabDefs: TabDef[] = [
         { name: 'Models', content: <ModelsTab /> },
@@ -17,22 +19,46 @@ export default function App() {
 
     return (
         <>
-            <nav className='navbar'>
-                <ul className='navbar-menu'>
+            <nav className='navbar' aria-label='Primary'>
+                <div className='navbar-menu' role='tablist'>
                     {
-                        tabDefs.map(def => 
-                            <li key={def.name} className={`navbar-menuitem ${tab == def.name ? 'active' : ''}`} onClick={() => setTab(def.name)}>{def.name}</li>
-                        )
+                        tabDefs.map(def => {
+                            const active = tab === def.name;
+                            return (
+                                <button
+                                    key={def.name}
+                                    type='button'
+                                    id={`tab-${def.name}`}
+                                    role='tab'
+                                    aria-selected={active}
+                                    aria-controls={`tab-panel-${def.name}`}
+                                    className={`navbar-menuitem ${active ? 'active' : ''}`}
+                                    onClick={() => setTab(def.name)}
+                                >
+                                    {def.name}
+                                </button>
+                            );
+                        })
                     }
-                </ul>
+                </div>
             </nav>
             <div>
                 {
-                    tabDefs.map(def =>
-                        <div key={def.name} className={`tab-content ${tab == def.name ? 'active' : ''}`}>
-                            {def.content}
-                        </div>
-                    )
+                    tabDefs.map(def => {
+                        const active = tab === def.name;
+                        return (
+                            <div
+                                key={def.name}
+                                id={`tab-panel-${def.name}`}
+                                role='tabpanel'
+                                aria-labelledby={`tab-${def.name}`}
+                                hidden={!active}
+                                className='tab-content'
+                            >
+                                {def.content}
+                            </div>
+                        );
+                    })
                 }
             </div>
         </>
