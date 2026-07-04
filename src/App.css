@@ -77,11 +77,15 @@ select {
 .data-table {
     font-size: 0.8rem;
     border-collapse: collapse;
+    width: 100%;
 }
 
 .data-table th {
-    border-bottom: 1px solid lightgray;
+    box-shadow: inset 0 -1px 0 lightgray;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background-color: white;
 }
 
 .data-table th, .data-table td {
@@ -208,7 +212,6 @@ select {
 .jobs-container {
     overflow-y: auto;
     height: 35vh;
-    width: fit-content;
 }
 
 .selectable-table tbody tr:hover {
