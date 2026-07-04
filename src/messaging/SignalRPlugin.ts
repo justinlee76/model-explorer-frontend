@@ -130,24 +130,24 @@ class SignalRModelsChangeNotifier extends SignalRMessagingClient implements Mode
     }
 
     start(): Promise<void> {
-        return this.createHubConnection(getUrl('/ModelDataHub'), connection => {
+        return this.createHubConnection(getUrl('/ModelHub'), connection => {
             connection.on('AddMetricData', (value: MetricHistoryValue) => {
                 this.logReceivedMessage('AddMetricData', value);
                 this.handlers.onUpdateMetricHistory(value);
             });
 
-            connection.on('AddTrainingStats', (model: Model) => {
-                this.logReceivedMessage('AddTrainingStats', model);
+            connection.on('AddModel', (model: Model) => {
+                this.logReceivedMessage('AddModel', model);
                 this.handlers.onInsert(model);
             });
 
-            connection.on('UpdateTrainingStats', (model: Model) => {
-                this.logReceivedMessage('UpdateTrainingStats', model);
+            connection.on('UpdateModel', (model: Model) => {
+                this.logReceivedMessage('UpdateModel', model);
                 this.handlers.onUpdate(model);
             });
 
-            connection.on('RemoveTrainingStats', (id: string) => {
-                this.logReceivedMessage('RemoveTrainingStats', id);
+            connection.on('RemoveModel', (id: string) => {
+                this.logReceivedMessage('RemoveModel', id);
                 this.handlers.onDelete(id);
             });
         });
@@ -155,12 +155,12 @@ class SignalRModelsChangeNotifier extends SignalRMessagingClient implements Mode
 
     subscribeTag(tag: string): void {
         this.tags.add(tag);
-        this.invoke('MonitorTag', tag);
+        this.invoke('SubscribeTag', tag);
     }
 
     unsubscribeTag(tag: string): void {
         this.tags.delete(tag);
-        this.invoke('EndMonitoring', tag);
+        this.invoke('UnsubscribeTag', tag);
     }
 
     subscribeMetricHistory(keys: MetricHistoryKey[]): void {
@@ -180,7 +180,7 @@ class SignalRModelsChangeNotifier extends SignalRMessagingClient implements Mode
     }
 
     protected override onReconnected(): void {
-        this.tags.forEach(tag => this.invoke('MonitorTag', tag));
+        this.tags.forEach(tag => this.invoke('SubscribeTag', tag));
 
         const keys = [...this.metricHistorySubscriptions.values()];
         if (keys.length > 0)
