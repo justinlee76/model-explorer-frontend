@@ -48,11 +48,25 @@ Start the selected API first. Then run:
 git clone https://github.com/justinlee76/model-explorer-frontend.git
 cd model-explorer-frontend
 npm ci
-cp .env.example .env
+```
+
+Copy the environment template for the API you started:
+
+```bash
+# FastAPI
+cp .env.fastapi.example .env
+
+# Or ASP.NET Core
+cp .env.aspnet.example .env
+```
+
+Then start the frontend:
+
+```bash
 npm run dev
 ```
 
-Open the address printed by Vite, normally <http://localhost:5173>. The example environment connects to the FastAPI backend at `http://localhost:8000/api/`.
+Open the address printed by Vite, normally <http://localhost:5173>. The FastAPI template connects to `http://localhost:8000/api/`; the ASP.NET Core template connects to `http://localhost:5071/api/`.
 
 If Vite selects another port, add that exact origin to the backend's CORS allowlist and restart the backend.
 
@@ -60,14 +74,14 @@ If Vite selects another port, add that exact origin to the backend's CORS allowl
 
 Choose the environment values that match the running API.
 
-### FastAPI and WebSockets
+### FastAPI and WebSockets (`.env.fastapi.example`)
 
 ```dotenv
 VITE_API_URL=http://localhost:8000/api/
 VITE_MESSAGING_TRANSPORT=websocket
 ```
 
-### ASP.NET Core and SignalR
+### ASP.NET Core and SignalR (`.env.aspnet.example`)
 
 ```dotenv
 VITE_API_URL=http://localhost:5071/api/
@@ -155,7 +169,8 @@ Most request and connection errors are logged in the browser developer console.
 | `src/messaging/` | Transport-neutral messaging contract plus WebSocket and SignalR implementations. |
 | `src/dataUtils.ts` | API URL handling, JSON requests, and transport selection. |
 | `src/types.ts` | Shared model, metric, task, job, and log types. |
-| `.env.example` | Local FastAPI/WebSocket configuration template. |
+| `.env.fastapi.example` | Local FastAPI/WebSocket configuration template. |
+| `.env.aspnet.example` | Local ASP.NET Core/SignalR configuration template. |
 
 ## Companion projects
 
