@@ -32,7 +32,7 @@ The API supplies model and job data to this frontend. The optional [training ser
 
 ## Requirements
 
-- Node.js 20 (20.19+), Node.js 22 (22.13+), or Node.js 24+
+- Node.js `^20.19.0` or `>=22.12.0`
 - npm
 - One compatible Model Explorer API:
   - [FastAPI](https://github.com/justinlee76/model-explorer-api-fastapi#quick-start) for native WebSockets
@@ -50,29 +50,33 @@ cd model-explorer-frontend
 npm ci
 ```
 
-Copy the environment template for the API you started:
-
-```bash
-# FastAPI
-cp .env.fastapi.example .env
-
-# Or ASP.NET Core
-cp .env.aspnet.example .env
-```
-
-Then start the frontend:
+The checked-in development configuration targets the ASP.NET Core API at `http://localhost:5071/api/` using SignalR. To use that default, start the frontend:
 
 ```bash
 npm run dev
 ```
 
-Open the address printed by Vite, normally <http://localhost:5173>. The FastAPI template connects to `http://localhost:8000/api/`; the ASP.NET Core template connects to `http://localhost:5071/api/`.
+To use the FastAPI backend instead, create a mode-specific local override before starting Vite:
+
+```bash
+cp .env.fastapi.example .env.development.local
+npm run dev
+```
+
+Open the address printed by Vite, normally <http://localhost:5173>. Use `.env.development.local` rather than `.env` for overrides because the checked-in `.env.development` takes precedence over generic environment files.
 
 If Vite selects another port, add that exact origin to the backend's CORS allowlist and restart the backend.
 
 ## Backend configuration
 
 Choose the environment values that match the running API.
+
+The repository's checked-in mode defaults are:
+
+| Mode | Used by | API URL | Live-update transport |
+| --- | --- | --- | --- |
+| Development | `npm run dev` | `http://localhost:5071/api/` | SignalR |
+| Production | `npm run build` | Same-origin `/api/` | SignalR |
 
 ### FastAPI and WebSockets (`.env.fastapi.example`)
 
@@ -88,12 +92,16 @@ VITE_API_URL=http://localhost:5071/api/
 VITE_MESSAGING_TRANSPORT=signalr
 ```
 
-| Variable | Default | Description |
+Copy the matching template to `.env.development.local` for development overrides or `.env.production.local` for production overrides. Replace the template's localhost URL when the API runs elsewhere.
+
+| Variable | Code fallback | Description |
 | --- | --- | --- |
-| `VITE_API_URL` | Same-origin `/api/` | Base URL used for REST requests and live-update connections. Keep the trailing `/` so relative API routes remain under `/api/`. |
+| `VITE_API_URL` | Same-origin `/api/` | Base URL used for REST requests and live-update connections. When set, it must be an absolute URL and retain the trailing `/`; omit it for the same-origin fallback. |
 | `VITE_MESSAGING_TRANSPORT` | `websocket` | Live-update transport. Supported values are `websocket` and `signalr`. |
 
-Vite reads these values when the development server starts and embeds them in production builds. Restart `npm run dev` after changing `.env`, and set production values before running `npm run build`. Local `.env` files are ignored by Git.
+Existing process environment variables have highest priority. For environment files, the relevant priority from highest to lowest is `.env.[mode].local`, `.env.[mode]`, `.env.local`, then `.env`. The `.env`, `.env.local`, and `.env.*.local` files are ignored by Git; `.env.development` and `.env.production` are checked in.
+
+Vite reads these values when the development server starts and embeds them in production builds. Restart `npm run dev` after changing development values and rebuild after changing production values; `npm run preview` cannot change an existing bundle. Every `VITE_*` value is exposed to browser code, so never put secrets in these variables.
 
 ## Using the interface
 
@@ -131,16 +139,28 @@ npm run build
 
 ## Production deployment
 
-Create the static bundle with:
+The checked-in `.env.production` creates a SignalR build that uses the same-origin `/api/` fallback. For a FastAPI deployment, or for either API on another origin, create the appropriate ignored production override and edit its URL before building:
+
+```bash
+# FastAPI
+cp .env.fastapi.example .env.production.local
+
+# Or ASP.NET Core on another origin
+cp .env.aspnet.example .env.production.local
+```
+
+Create the static bundle after selecting the production configuration:
 
 ```bash
 npm ci
 npm run build
 ```
 
-Deploy the generated `dist/` directory with a static web server. `npm run preview` is intended for local verification, not as a production server.
+CI may set `VITE_API_URL` and `VITE_MESSAGING_TRANSPORT` in the process environment instead; those values override the environment files.
 
-For a separate API origin, set `VITE_API_URL` before building and allow the frontend's exact origin in the API's CORS configuration. For a same-origin deployment, you can omit `VITE_API_URL` and proxy `/api/` to the backend. The proxy must also support the selected live-update transport:
+Deploy the generated `dist/` directory with a static web server at the origin root. `npm run preview` is intended for local verification, not as a production server.
+
+For a separate API origin, set its absolute URL before building and allow the frontend's exact origin in the API's CORS configuration. For a same-origin deployment, omit `VITE_API_URL` and proxy `/api/` to the backend. The proxy must also support the selected live-update transport:
 
 - WebSocket: upgrade connections for `/api/ws/models` and `/api/ws/jobs`.
 - SignalR: route `/ModelHub` and `/JobHub`, including their HTTP negotiation and WebSocket traffic.
@@ -151,11 +171,11 @@ For a separate API origin, set `VITE_API_URL` before building and allow the fron
 
 | Symptom | What to check |
 | --- | --- |
-| Model and job data do not load | Confirm that the API is running, `VITE_API_URL` ends in `/`, and the browser console has no failed requests. |
+| Model and job data do not load | Confirm that the API is running, `VITE_API_URL` is absolute and ends in `/` (or is omitted for same-origin use), and the browser console has no failed requests. |
 | The browser reports a CORS error | Add the exact frontend origin, including its port, to the API's CORS allowlist. |
 | Initial data loads but live updates do not | Match `websocket` with FastAPI or `signalr` with ASP.NET Core, then check that any reverse proxy permits the corresponding live connection. |
 | A job remains `Submitted` | Start the training service and confirm that the task is registered in the same MongoDB database used by the API and worker. |
-| Environment changes have no effect | Restart the Vite development server or rebuild the production bundle. |
+| Environment changes have no effect | Use the matching `.env.[mode].local` file, check for a higher-priority process variable, then restart Vite or rebuild. Previewing an existing bundle does not re-read these values. |
 
 Most request and connection errors are logged in the browser developer console.
 
@@ -169,6 +189,8 @@ Most request and connection errors are logged in the browser developer console.
 | `src/messaging/` | Transport-neutral messaging contract plus WebSocket and SignalR implementations. |
 | `src/dataUtils.ts` | API URL handling, JSON requests, and transport selection. |
 | `src/types.ts` | Shared model, metric, task, job, and log types. |
+| `.env.development` | Checked-in ASP.NET Core/SignalR defaults for `npm run dev`. |
+| `.env.production` | Checked-in same-origin/SignalR defaults for production builds. |
 | `.env.fastapi.example` | Local FastAPI/WebSocket configuration template. |
 | `.env.aspnet.example` | Local ASP.NET Core/SignalR configuration template. |
 
