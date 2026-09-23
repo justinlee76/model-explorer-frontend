@@ -18,7 +18,7 @@ interface MetricHistory extends MetricHistoryKey {
 }
 
 interface DeleteModelsResponse {
-    errors: { [id: string]: string };
+    error: string | null;
 }
 
 const logger = getLogger('ModelsTab');
@@ -247,19 +247,28 @@ export function ModelsTab() {
     const handleDeleteButtonClicked = () => {
         const msg = `Delete the following models?\n\n${[...selectedModels].join('\n')}`;
         if (confirm(msg)) {
-            fetchJsonData<DeleteModelsResponse>(getUrl('delete-models'), undefined, 'POST', [...selectedModels].filter(m => !activeModels.has(m)))
-                .then(data => {
-                    if (Object.keys(data.errors).length > 0) {
-                        const errors = Object.entries(data.errors).map(e => `${e[0]}: ${e[1]}`);
-                        const errorMsg = `The following errors were encountered while deleting models:\n\n${errors.join('\n')}`;
-                        alert(errorMsg);
-                    }
-                });
             const selectedActive = [...selectedModels].filter(m => activeModels.has(m));
-            if (selectedActive.length > 0) {
-                const alertMsg = `Unable to delete the following models as they are currently being trained:\n\n${selectedActive.join('\n')}`;
-                alert(alertMsg);
+            const deletable = [...selectedModels].filter(m => !activeModels.has(m));
+            const activeMessage = selectedActive.length > 0
+                ? `Unable to delete the following models as they are currently being trained:\n\n${selectedActive.join('\n')}`
+                : null;
+            if (deletable.length === 0) {
+                if (activeMessage)
+                    alert(activeMessage);
+                return;
             }
+
+            fetchJsonData<DeleteModelsResponse>(getUrl('delete-models'), undefined, 'POST', deletable)
+                .then(data => {
+                    const errorMessage = [data.error, activeMessage].filter(Boolean).join('\n\n');
+                    if (errorMessage)
+                        alert(errorMessage);
+                })
+                .catch(error => {
+                    handleFetchError(error);
+                    const requestMessage = error instanceof Error ? error.message : String(error);
+                    alert([`Unable to delete models: ${requestMessage}`, activeMessage].filter(Boolean).join('\n\n'));
+                });
         }
     };
 
